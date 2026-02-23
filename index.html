@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharpTax • secure client intake</title>
+    <!-- Alpine.js for state -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #f3f6fc;
+            color: #1a2639;
+            line-height: 1.5;
+        }
+        .container { max-width: 780px; margin: 2rem auto; padding: 0 1.5rem; }
+        .container.wide { max-width: 1400px; }
+        .card {
+            background: white; border-radius: 24px; box-shadow: 0 15px 35px -10px rgba(0,40,100,0.15);
+            padding: 2rem; border: 1px solid #e9edf4;
+        }
+        .logo {
+            display: inline-block; background: #0b1e33; color: white; padding: 0.6rem 2rem;
+            border-radius: 40px; font-weight: 600; font-size: 1.4rem; letter-spacing: -0.5px;
+            cursor: pointer; transition: 0.2s; border: 1px solid #253c5c;
+            user-select: none;
+        }
+        .logo:hover { background: #1f3a5f; transform: scale(1.01); }
+        h2 { font-size: 1.8rem; font-weight: 600; color: #0b1e33; margin-bottom: 1.8rem; }
+        .form-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+        }
+        .form-group { margin-bottom: 1.3rem; }
+        label {
+            display: block; font-weight: 500; font-size: 0.9rem; margin-bottom: 0.3rem;
+            color: #2d3a4f; letter-spacing: -0.2px;
+        }
+        input, select {
+            width: 100%; padding: 0.75rem 1rem; border: 1.5px solid #d8e0eb; border-radius: 14px;
+            font-size: 1rem; transition: 0.15s; background: white;
+        }
+        input:focus, select:focus {
+            border-color: #1e4f8a; box-shadow: 0 0 0 4px rgba(20,80,150,0.15); outline: none;
+        }
+        input.error { border-color: #c9384b; background-color: #fff7f8; }
+        .error-text { color: #c9384b; font-size: 0.8rem; margin-top: 0.3rem; font-weight: 500; }
+        .success-text { color: #1f7b4d; }
+        .btn-primary {
+            background: #0b1e33; color: white; border: none; padding: 1rem 2rem;
+            font-size: 1.1rem; font-weight: 600; border-radius: 40px; cursor: pointer;
+            width: 100%; transition: 0.15s; margin-top: 1rem;
+        }
+        .btn-primary:hover { background: #1f3a5f; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #8b9bb0; cursor: not-allowed; transform: none; }
+        .btn-secondary {
+            background: #edf2f9; color: #1e2f40; border: 1px solid #cbd5e1; padding: 0.6rem 1.2rem;
+            border-radius: 30px; font-weight: 500; cursor: pointer; transition: 0.1s;
+        }
+        .btn-secondary:hover { background: #dde5f0; }
+        .badge {
+            background: #1f7b4d; color: white; padding: 0.3rem 0.8rem; border-radius: 40px;
+            font-size: 0.8rem; font-weight: 600;
+        }
+        .nav-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            background: white; padding: 1rem 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+            border-bottom: 1px solid #eef2f6;
+        }
+        .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+        .nav-link { color: #1e2b3c; text-decoration: none; font-weight: 500; }
+        .nav-link:hover { color: #0b1e33; }
+        .toast {
+            position: fixed; top: 20px; right: 20px; background: white; padding: 1rem 2rem;
+            border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 1000;
+            border-left: 5px solid #1f7b4d; font-weight: 500;
+        }
+        .toast.error { border-left-color: #c9384b; }
+        .table-container { overflow-x: auto; border-radius: 20px; border: 1px solid #eef2f6; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: #f8fafd; color: #1e2f40; font-weight: 600; padding: 1rem 0.5rem;
+            text-align: left; cursor: pointer; white-space: nowrap;
+        }
+        td { padding: 0.9rem 0.5rem; border-bottom: 1px solid #ecf1f7; }
+        tr:hover td { background-color: #fafcff; }
+        .loading-spinner {
+            display: inline-block; width: 18px; height: 18px; border: 3px solid #e2e8f0;
+            border-top: 3px solid #0b1e33; border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 640px) {
+            .form-row { grid-template-columns: 1fr; }
+            .nav-bar { flex-direction: column; gap: 0.8rem; }
+            .nav-links { flex-wrap: wrap; justify-content: center; }
+        }
+        hr { margin: 1.5rem 0; border: 1px solid #eef2f6; }
+        .footer { text-align: center; margin-top: 2rem; color: #7a8c9e; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div x-data="app()" x-init="init()" @keydown.escape="toast.show = false">
+        <!-- toast -->
+        <template x-if="toast.show">
+            <div class="toast" :class="{'error': toast.type === 'error'}" @click="toast.show = false">
+                <span x-text="toast.message"></span>
+            </div>
+        </template>
+
+        <!-- navigation bar: public only sees "Intake" -->
+        <div class="nav-bar">
+            <!-- double-click logo to reveal login (hidden gesture) -->
+            <div class="logo" @click="goToHome()" @dblclick="currentPage = 'login'">SharpTax</div>
+            <div class="nav-links">
+                <template x-if="!isAuthenticated">
+                    <!-- only Intake link for public users -->
+                    <a href="#" class="nav-link" @click.prevent="currentPage = 'form'">Intake</a>
+                </template>
+                <template x-if="isAuthenticated">
+                    <!-- after login, show Dashboard + logout -->
+                    <a href="#" class="nav-link" @click.prevent="currentPage = 'dashboard'">Dashboard</a>
+                    <span class="badge">admin</span>
+                    <button @click="logout()" class="btn-secondary" style="margin:0">logout</button>
+                </template>
+            </div>
+        </div>
+
+        <!-- main pages -->
+        <div :class="['container', {'wide': currentPage === 'dashboard'}]">
+            <!-- PUBLIC INTAKE FORM -->
+            <div x-show="currentPage === 'form'" x-transition>
+                <div class="card">
+                    <h2>🔒 SharpTax client intake</h2>
+                    <div x-show="submitSuccess" class="success-text" style="text-align:center; margin-bottom:1.5rem;">
+                        ✓ Information submitted! Redirecting...
+                    </div>
+
+                    <form @submit.prevent="submitForm">
+                        <!-- ID.me verified -->
+                        <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                            <input type="checkbox" x-model="form.idmeVerified" id="idmeVerified" style="width:auto;">
+                            <label for="idmeVerified" style="margin:0;">✅ Verified with ID.me</label>
+                        </div>
+
+                        <!-- DRIVER LICENSE -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Driver's license number *</label>
+                                <input type="text" x-model="form.driversLicenseNumber" :class="{'error': errors.driversLicenseNumber}" @input="clearFieldError('driversLicenseNumber')">
+                                <div x-show="errors.driversLicenseNumber" class="error-text" x-text="errors.driversLicenseNumber"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>State *</label>
+                                <input type="text" x-model="form.driversLicenseState" maxlength="2" placeholder="CA" :class="{'error': errors.driversLicenseState}" @input="clearFieldError('driversLicenseState')">
+                                <div x-show="errors.driversLicenseState" class="error-text" x-text="errors.driversLicenseState"></div>
+                            </div>
+                        </div>
+
+                        <!-- SSN + CONFIRM + DOB -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>SSN (XXX-XX-XXXX) *</label>
+                                <input type="text" x-model="form.ssn" placeholder="123-45-6789" :class="{'error': errors.ssn}" @input="clearFieldError('ssn')">
+                                <div x-show="errors.ssn" class="error-text" x-text="errors.ssn"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Confirm SSN *</label>
+                                <input type="text" x-model="form.confirmSsn" placeholder="123-45-6789" :class="{'error': errors.confirmSsn}" @input="clearFieldError('confirmSsn')">
+                                <div x-show="errors.confirmSsn" class="error-text" x-text="errors.confirmSsn"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date of birth * (MM/DD/YYYY)</label>
+                                <input type="text" x-model="form.dateOfBirth" placeholder="04/15/1985" :class="{'error': errors.dateOfBirth}" @input="clearFieldError('dateOfBirth')">
+                                <div x-show="errors.dateOfBirth" class="error-text" x-text="errors.dateOfBirth"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>W-2 (optional)</label>
+                                <input type="file" @change="handleFileUpload" accept=".pdf,.jpg,.jpeg,.png">
+                                <div x-show="w2File" class="success-text" style="font-size:0.8rem;" x-text="w2File ? w2File.name : ''"></div>
+                            </div>
+                        </div>
+
+                        <!-- PARENTS NAMES -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Father's full name *</label>
+                                <input type="text" x-model="form.fathersName" :class="{'error': errors.fathersName}" @input="clearFieldError('fathersName')">
+                                <div x-show="errors.fathersName" class="error-text" x-text="errors.fathersName"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Mother's full name *</label>
+                                <input type="text" x-model="form.mothersName" :class="{'error': errors.mothersName}" @input="clearFieldError('mothersName')">
+                                <div x-show="errors.mothersName" class="error-text" x-text="errors.mothersName"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Mother's maiden name *</label>
+                            <input type="text" x-model="form.mothersMaidenName" :class="{'error': errors.mothersMaidenName}" @input="clearFieldError('mothersMaidenName')">
+                            <div x-show="errors.mothersMaidenName" class="error-text" x-text="errors.mothersMaidenName"></div>
+                        </div>
+
+                        <!-- BIRTH PLACE -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>City of birth *</label>
+                                <input type="text" x-model="form.birthCity" :class="{'error': errors.birthCity}" @input="clearFieldError('birthCity')">
+                                <div x-show="errors.birthCity" class="error-text" x-text="errors.birthCity"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>State of birth *</label>
+                                <input type="text" x-model="form.birthState" maxlength="2" placeholder="TX" :class="{'error': errors.birthState}" @input="clearFieldError('birthState')">
+                                <div x-show="errors.birthState" class="error-text" x-text="errors.birthState"></div>
+                            </div>
+                        </div>
+
+                        <!-- EMAIL + PHONE -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Email address *</label>
+                                <input type="email" x-model="form.email" placeholder="you@example.com" :class="{'error': errors.email}" @input="clearFieldError('email')">
+                                <div x-show="errors.email" class="error-text" x-text="errors.email"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Confirm email *</label>
+                                <input type="email" x-model="form.confirmEmail" placeholder="you@example.com" :class="{'error': errors.confirmEmail}" @input="clearFieldError('confirmEmail')">
+                                <div x-show="errors.confirmEmail" class="error-text" x-text="errors.confirmEmail"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone number (optional, e.g. 555-123-4567)</label>
+                            <input type="tel" x-model="form.phone" placeholder="555-123-4567" :class="{'error': errors.phone}" @input="clearFieldError('phone')">
+                            <div x-show="errors.phone" class="error-text" x-text="errors.phone"></div>
+                        </div>
+
+                        <hr>
+
+                        <!-- BANK DETAILS with confirm -->
+                        <div class="form-group">
+                            <label>Bank name *</label>
+                            <input type="text" x-model="form.bankName" :class="{'error': errors.bankName}" @input="clearFieldError('bankName')">
+                            <div x-show="errors.bankName" class="error-text" x-text="errors.bankName"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Account type</label>
+                            <select x-model="form.accountType">
+                                <option value="checking">Checking</option>
+                                <option value="savings">Savings</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Routing number * (9 digits)</label>
+                                <input type="text" x-model="form.routingNumber" placeholder="123456789" maxlength="9" :class="{'error': errors.routingNumber}" @input="clearFieldError('routingNumber')">
+                                <div x-show="errors.routingNumber" class="error-text" x-text="errors.routingNumber"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Account number *</label>
+                                <input type="text" x-model="form.accountNumber" placeholder="at least 8 digits" :class="{'error': errors.accountNumber}" @input="clearFieldError('accountNumber')">
+                                <div x-show="errors.accountNumber" class="error-text" x-text="errors.accountNumber"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm account number *</label>
+                            <input type="text" x-model="form.confirmAccountNumber" placeholder="re-enter account number" :class="{'error': errors.confirmAccountNumber}" @input="clearFieldError('confirmAccountNumber')">
+                            <div x-show="errors.confirmAccountNumber" class="error-text" x-text="errors.confirmAccountNumber"></div>
+                        </div>
+
+                        <button type="submit" class="btn-primary" :disabled="isSubmitting">
+                            <span x-show="!isSubmitting">✧ Submit to SharpTax ✧</span>
+                            <span x-show="isSubmitting"><span class="loading-spinner"></span> processing...</span>
+                        </button>
+                    </form>
+                    <!-- privacy link (no admin hint) -->
+                    <div class="privacy-link" style="margin-top:1.5rem;">
+                        <a href="#" @click.prevent="currentPage = 'privacy'" style="color:#4a5b73;">Privacy policy</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THANK YOU -->
+            <div x-show="currentPage === 'thankyou'" x-transition>
+                <div class="card" style="text-align:center;">
+                    <h2>✨ Thank you ✨</h2>
+                    <p style="font-size:1.2rem; margin:2rem 0;">Your SharpTax intake form has been safely received.</p>
+                    <button @click="resetAndGoHome()" class="btn-primary" style="width:auto; padding:0.8rem 2.5rem;">new submission</button>
+                </div>
+            </div>
+
+            <!-- LOGIN PAGE (hidden from public, accessible via double‑click logo) -->
+            <div x-show="currentPage === 'login'" x-transition>
+                <div class="card" style="max-width:420px; margin:2rem auto;">
+                    <h2>Admin sign in</h2>
+                    <p style="text-align:center; color:#4f6f8f; margin-bottom:1.5rem;">authorized personnel only</p>
+                    <form @submit.prevent="login">
+                        <div class="form-group"><label>Username</label><input type="text" x-model="loginForm.username" required></div>
+                        <div class="form-group"><label>Password</label><input type="password" x-model="loginForm.password" required></div>
+                        <div x-show="loginError" class="error-text" x-text="loginError"></div>
+                        <button type="submit" class="btn-primary" :disabled="isLoggingIn">
+                            <span x-show="!isLoggingIn">access dashboard</span>
+                            <span x-show="isLoggingIn"><span class="loading-spinner"></span> verifying</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PRIVACY -->
+            <div x-show="currentPage === 'privacy'" x-transition>
+                <div class="card">
+                    <h1>SharpTax privacy</h1>
+                    <p style="margin:1rem 0;">We collect only what’s needed for accurate filing. All data is encrypted before storage. We don’t share your information except as required.</p>
+                    <p style="margin-top:2rem;"><a href="#" @click.prevent="currentPage = 'form'">← back to intake</a></p>
+                </div>
+            </div>
+
+            <!-- ADMIN DASHBOARD (visible only after login) -->
+            <div x-show="currentPage === 'dashboard'" x-transition>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom:1.5rem;">
+                        <h2 style="margin-bottom:0;">📊 client submissions</h2>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button @click="refreshDashboard" class="btn-secondary">⟳ refresh</button>
+                            <button @click="exportData" class="btn-secondary">⬇ CSV</button>
+                        </div>
+                    </div>
+                    <div x-show="submissions.length === 0" style="text-align:center; padding:3rem;">
+                        <p style="color:#4f6f8f;">No submissions yet.</p>
+                    </div>
+                    <template x-if="submissions.length">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th @click="sortBy('idmeVerified')">ID.me</th>
+                                        <th @click="sortBy('driversLicense')">Licence</th>
+                                        <th @click="sortBy('ssn')">SSN</th>
+                                        <th @click="sortBy('dateOfBirth')">DOB</th>
+                                        <th @click="sortBy('email')">Email</th>
+                                        <th @click="sortBy('phone')">Phone</th>
+                                        <th @click="sortBy('fathersName')">Father</th>
+                                        <th @click="sortBy('mothersName')">Mother</th>
+                                        <th @click="sortBy('mothersMaidenName')">Maiden</th>
+                                        <th @click="sortBy('birthPlace')">Birth place</th>
+                                        <th @click="sortBy('bankName')">Bank</th>
+                                        <th @click="sortBy('accountNumber')">Account</th>
+                                        <th @click="sortBy('routingNumber')">Routing</th>
+                                        <th @click="sortBy('hasW2')">W-2</th>
+                                        <th @click="sortBy('submittedAt')">Submitted</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="sub in sortedSubmissions" :key="sub.id">
+                                        <tr>
+                                            <td x-text="sub.idmeVerified ? '✓' : '✗'"></td>
+                                            <td x-text="sub.driversLicenseNumber + ' ' + sub.driversLicenseState"></td>
+                                            <td x-text="sub.ssn"></td>
+                                            <td x-text="sub.dateOfBirth"></td>
+                                            <td x-text="sub.email"></td>
+                                            <td x-text="sub.phone || '—'"></td>
+                                            <td x-text="sub.fathersName"></td>
+                                            <td x-text="sub.mothersName"></td>
+                                            <td x-text="sub.mothersMaidenName"></td>
+                                            <td x-text="sub.birthCity + ', ' + sub.birthState"></td>
+                                            <td x-text="sub.bankName"></td>
+                                            <td x-text="sub.accountNumber"></td>
+                                            <td x-text="sub.routingNumber"></td>
+                                            <td x-text="sub.hasW2 ? '✓' : '—'"></td>
+                                            <td x-text="formatDate(sub.submittedAt)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <div x-show="submissions.length" style="margin-top:1rem; color:#4b6584;" x-text="'total: ' + submissions.length"></div>
+                </div>
+            </div>
+
+            <!-- FOOTER with no demo text -->
+            <div class="footer">
+                © 2025 SharpTax
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                // page state
+                currentPage: 'form',
+                isAuthenticated: false,
+                toast: { show: false, message: '', type: 'success' },
+
+                // form fields
+                form: {
+                    idmeVerified: false,
+                    driversLicenseNumber: '', driversLicenseState: '',
+                    ssn: '', confirmSsn: '', dateOfBirth: '',
+                    email: '', confirmEmail: '', phone: '',
+                    fathersName: '', mothersName: '', mothersMaidenName: '',
+                    birthCity: '', birthState: '',
+                    bankName: '', accountType: 'checking', routingNumber: '', accountNumber: '', confirmAccountNumber: '',
+                },
+                w2File: null,
+                errors: {},
+                isSubmitting: false,
+                submitSuccess: false,
+
+                // login
+                loginForm: { username: '', password: '' },
+                isLoggingIn: false,
+                loginError: '',
+
+                // dashboard
+                submissions: [],
+                sortField: 'submittedAt',
+                sortDirection: 'desc',
+
+                init() {
+                    // Clear any old localStorage auth to prevent accidental lingering sessions
+                    localStorage.removeItem('sharptax_auth');
+                    this.loadData();
+                    this.checkAuth(); // uses sessionStorage
+                    if (this.submissions.length === 0) this.addSampleData();
+                },
+
+                loadData() {
+                    const data = localStorage.getItem('sharptax_submissions');
+                    this.submissions = data ? JSON.parse(data) : [];
+                },
+                saveData() {
+                    localStorage.setItem('sharptax_submissions', JSON.stringify(this.submissions));
+                },
+
+                addSampleData() {
+                    const samples = [
+                        {
+                            id: 's1', idmeVerified: true,
+                            driversLicenseNumber: 'F887766', driversLicenseState: 'TX',
+                            ssn: '456-78-9123', dateOfBirth: '02/20/1988',
+                            email: 'avery@example.com', phone: '512-555-0199',
+                            fathersName: 'Carlos Mendez', mothersName: 'Lucia Mendez', mothersMaidenName: 'Rios',
+                            birthCity: 'Austin', birthState: 'TX',
+                            bankName: 'First United', accountType: 'checking', routingNumber: '111222333', accountNumber: '8877665544',
+                            hasW2: true, submittedAt: new Date(Date.now() - 2*86400000).toISOString()
+                        },
+                        {
+                            id: 's2', idmeVerified: false,
+                            driversLicenseNumber: 'D443322', driversLicenseState: 'FL',
+                            ssn: '321-54-9876', dateOfBirth: '11/03/1995',
+                            email: 'sam.p@example.co', phone: '',
+                            fathersName: 'Robert Park', mothersName: 'Eileen Park', mothersMaidenName: 'Chen',
+                            birthCity: 'Miami', birthState: 'FL',
+                            bankName: 'Coast Bank', accountType: 'savings', routingNumber: '123456789', accountNumber: '4433221199',
+                            hasW2: false, submittedAt: new Date(Date.now() - 5*86400000).toISOString()
+                        }
+                    ];
+                    this.submissions = samples;
+                    this.saveData();
+                },
+
+                checkAuth() {
+                    // Use sessionStorage so login lasts only for the current tab session
+                    const auth = sessionStorage.getItem('sharptax_auth');
+                    this.isAuthenticated = auth ? JSON.parse(auth).isLoggedIn : false;
+                },
+
+                showToast(msg, type = 'success') {
+                    this.toast = { show: true, message: msg, type };
+                    setTimeout(() => this.toast.show = false, 3000);
+                },
+
+                clearFieldError(field) {
+                    if (this.errors[field]) delete this.errors[field];
+                },
+
+                // enhanced validation
+                validateForm() {
+                    const err = {};
+                    if (!this.form.driversLicenseNumber) err.driversLicenseNumber = 'License number required';
+                    if (!this.form.driversLicenseState || this.form.driversLicenseState.length !== 2) err.driversLicenseState = 'Two‑letter state code';
+
+                    const ssnPattern = /^\d{3}-\d{2}-\d{4}$/;
+                    if (!this.form.ssn) err.ssn = 'SSN required';
+                    else if (!ssnPattern.test(this.form.ssn)) err.ssn = 'Use format 123-45-6789';
+                    if (this.form.ssn !== this.form.confirmSsn) err.confirmSsn = 'SSNs must match';
+
+                    const dobPattern = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+                    if (!this.form.dateOfBirth) err.dateOfBirth = 'Date of birth required';
+                    else if (!dobPattern.test(this.form.dateOfBirth)) err.dateOfBirth = 'Use MM/DD/YYYY';
+
+                    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!this.form.email) err.email = 'Email required';
+                    else if (!emailPattern.test(this.form.email)) err.email = 'Valid email needed';
+                    if (this.form.email !== this.form.confirmEmail) err.confirmEmail = 'Emails must match';
+
+                    if (this.form.phone) {
+                        const phoneClean = this.form.phone.replace(/\D/g, '');
+                        if (phoneClean.length !== 10) err.phone = 'Enter 10 digits (with or without dashes)';
+                    }
+
+                    if (!this.form.fathersName) err.fathersName = 'Required';
+                    if (!this.form.mothersName) err.mothersName = 'Required';
+                    if (!this.form.mothersMaidenName) err.mothersMaidenName = 'Required';
+                    if (!this.form.birthCity) err.birthCity = 'Required';
+                    if (!this.form.birthState || this.form.birthState.length !== 2) err.birthState = 'Two‑letter state';
+                    if (!this.form.bankName) err.bankName = 'Bank name required';
+
+                    const routingClean = this.form.routingNumber.replace(/\D/g, '');
+                    if (!this.form.routingNumber) err.routingNumber = 'Routing number required';
+                    else if (routingClean.length !== 9) err.routingNumber = 'Must be 9 digits';
+
+                    const accClean = this.form.accountNumber.replace(/\D/g, '');
+                    if (!this.form.accountNumber) err.accountNumber = 'Account number required';
+                    else if (accClean.length < 8) err.accountNumber = 'At least 8 digits';
+                    if (this.form.accountNumber !== this.form.confirmAccountNumber) err.confirmAccountNumber = 'Account numbers must match';
+
+                    this.errors = err;
+                    return Object.keys(err).length === 0;
+                },
+
+                handleFileUpload(e) { this.w2File = e.target.files[0]; },
+
+                async submitForm() {
+                    if (!this.validateForm()) return;
+                    this.isSubmitting = true;
+                    await new Promise(r => setTimeout(r, 1500));
+
+                    const submission = {
+                        id: Date.now().toString(),
+                        idmeVerified: this.form.idmeVerified,
+                        driversLicenseNumber: this.form.driversLicenseNumber,
+                        driversLicenseState: this.form.driversLicenseState.toUpperCase(),
+                        ssn: this.form.ssn,
+                        dateOfBirth: this.form.dateOfBirth,
+                        email: this.form.email,
+                        phone: this.form.phone,
+                        fathersName: this.form.fathersName,
+                        mothersName: this.form.mothersName,
+                        mothersMaidenName: this.form.mothersMaidenName,
+                        birthCity: this.form.birthCity,
+                        birthState: this.form.birthState.toUpperCase(),
+                        bankName: this.form.bankName,
+                        accountType: this.form.accountType,
+                        routingNumber: this.form.routingNumber,
+                        accountNumber: this.form.accountNumber,
+                        hasW2: !!this.w2File,
+                        submittedAt: new Date().toISOString()
+                    };
+                    this.submissions.unshift(submission);
+                    this.saveData();
+
+                    this.submitSuccess = true;
+                    this.showToast('SharpTax intake completed');
+                    setTimeout(() => {
+                        this.resetForm();
+                        this.currentPage = 'thankyou';
+                        this.submitSuccess = false;
+                    }, 1500);
+                    this.isSubmitting = false;
+                },
+
+                resetForm() {
+                    this.form = {
+                        idmeVerified: false,
+                        driversLicenseNumber: '', driversLicenseState: '',
+                        ssn: '', confirmSsn: '', dateOfBirth: '',
+                        email: '', confirmEmail: '', phone: '',
+                        fathersName: '', mothersName: '', mothersMaidenName: '',
+                        birthCity: '', birthState: '',
+                        bankName: '', accountType: 'checking', routingNumber: '', accountNumber: '', confirmAccountNumber: '',
+                    };
+                    this.w2File = null;
+                    this.errors = {};
+                },
+
+                resetAndGoHome() { this.resetForm(); this.currentPage = 'form'; },
+                goToHome() { this.currentPage = 'form'; },
+
+                async login() {
+                    this.isLoggingIn = true; this.loginError = '';
+                    await new Promise(r => setTimeout(r, 800));
+                    if (this.loginForm.username && this.loginForm.password) {
+                        // Use sessionStorage instead of localStorage
+                        sessionStorage.setItem('sharptax_auth', JSON.stringify({ isLoggedIn: true }));
+                        this.isAuthenticated = true;
+                        this.currentPage = 'dashboard';
+                        this.loginForm = { username: '', password: '' };
+                        this.showToast('Welcome, admin');
+                    } else this.loginError = 'Invalid credentials';
+                    this.isLoggingIn = false;
+                },
+                logout() {
+                    sessionStorage.removeItem('sharptax_auth');
+                    this.isAuthenticated = false;
+                    this.currentPage = 'form';
+                    this.showToast('Logged out');
+                },
+
+                refreshDashboard() { this.loadData(); this.showToast('Refreshed'); },
+                exportData() {
+                    if (!this.submissions.length) return this.showToast('No data', 'error');
+                    const headers = ['ID.me','License','SSN','DOB','Email','Phone','Father','Mother','Maiden','Birth place','Bank','Account','Routing','W-2','Submitted'];
+                    const rows = this.submissions.map(s => [
+                        s.idmeVerified ? 'Yes':'No',
+                        `${s.driversLicenseNumber} (${s.driversLicenseState})`,
+                        s.ssn, s.dateOfBirth, s.email, s.phone||'',
+                        s.fathersName, s.mothersName, s.mothersMaidenName,
+                        `${s.birthCity}, ${s.birthState}`,
+                        s.bankName, s.accountNumber, s.routingNumber,
+                        s.hasW2 ? 'Yes':'No',
+                        new Date(s.submittedAt).toLocaleString()
+                    ]);
+                    const csv = [headers, ...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+                    const blob = new Blob([csv],{type:'text/csv'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `sharptax_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click();
+                    this.showToast('CSV exported');
+                },
+
+                sortBy(field) {
+                    if (this.sortField === field) this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                    else { this.sortField = field; this.sortDirection = 'asc'; }
+                },
+                get sortedSubmissions() {
+                    return [...this.submissions].sort((a,b) => {
+                        let aVal = a[this.sortField], bVal = b[this.sortField];
+                        if (this.sortField === 'driversLicense') aVal = a.driversLicenseNumber, bVal = b.driversLicenseNumber;
+                        if (this.sortField === 'birthPlace') aVal = a.birthCity + a.birthState, bVal = b.birthCity + b.birthState;
+                        if (this.sortField === 'hasW2') aVal = a.hasW2 ? 1 : 0, bVal = b.hasW2 ? 1 : 0;
+                        if (this.sortField === 'idmeVerified') aVal = a.idmeVerified ? 1 : 0, bVal = b.idmeVerified ? 1 : 0;
+                        if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
+                        if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                },
+                formatDate(iso) { return new Date(iso).toLocaleString(); },
+            }
+        }
+    </script>
+</body>
+</html>
